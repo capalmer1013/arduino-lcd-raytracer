@@ -2,8 +2,10 @@
 #include <Adafruit_GFX.h>    // Core graphics library
 #include <Adafruit_TFTLCD.h> // Hardware-specific library
 
-#include "vec3.h"
-#include "ray.h"
+#include "rtweekend.h"
+#include "camera.h"
+#include "hittable.h"
+#include "hittable_list.h"
 
 #define LCD_CS A3 // Chip Select goes to Analog 3
 #define LCD_CD A2 // Command/Data goes to Analog 2
@@ -12,6 +14,14 @@
 #define LCD_RESET A4 // Can alternately just connect to Arduino's reset pin
 
 Adafruit_TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
+
+
+
+inline double clamp(double x, double min, double max) {
+    if (x < min) return min;
+    if (x > max) return max;
+    return x;
+}
 
 double hit_sphere(const point3& center, double radius, const ray& r) {
   vec3 oc = r.origin() - center;
@@ -26,16 +36,20 @@ double hit_sphere(const point3& center, double radius, const ray& r) {
   }
 }
 
-color ray_color(const ray& r) {
+color ray_color(const ray& r, int depth) {
+  hit_record rec;
+  if(depth <= 0){
+    return color(0.0, 0.0, 0.0);
+  }
   auto t = hit_sphere(point3(0,0,-1), 0.5, r);
   if (t > 0.0) {
-    vec3 N = unit_vector(r.at(t) - vec3(0,0,-1));
-    return 0.5*color(N.x()+1, N.y()+1, N.z()+1);
+    point3 target = rec.p + rec.normal + random_in_unit_sphere();
+    return 0.5 * (ray_color(ray(rec.p, target - rec.p), depth-1));
   }
   t = hit_sphere(point3(0,-100.5,-1), 100, r);
   if (t > 0.0) {
-    vec3 N = unit_vector(r.at(t) - vec3(0,0,-1));
-    return color(0.0, 1.0, 0.0);
+    point3 target = rec.p + rec.normal + random_in_unit_sphere();
+    return 0.5 * (ray_color(ray(rec.p, target - rec.p), depth-1));
   }
   
   vec3 unit_direction = unit_vector(r.direction());
@@ -44,45 +58,59 @@ color ray_color(const ray& r) {
 }
 
 void setup(void) {
-  randomSeed(analogRead(3));
+  randomSeed(analogRead(5));
   Serial.begin(9600);
   Serial.println(F("TFT LCD test"));
   tft.reset();
   uint16_t identifier = tft.readID();
   tft.begin(identifier);
   tft.setRotation(1);
+  for(int i=0; i< 10;i++){
+    Serial.println(random_double());
+  }
   main_f();
 }
+
+void write_color(int x, int y, color pixel_color, int samples_per_pixel){
+  auto scale = 1.0/samples_per_pixel;
+  color c(scale, scale, scale);
+
+  pixel_color*=c;
+  pixel_color.e[0] = clamp(sqrt(pixel_color.e[0]), 0.0, 0.999);
+  pixel_color.e[1] = clamp(sqrt(pixel_color.e[1]), 0.0, 0.999);
+  pixel_color.e[2] = clamp(sqrt(pixel_color.e[2]), 0.0, 0.999);
+  
+  unsigned int color = color_to_565(pixel_color);
+  tft.drawPixel(x, y,  color);
+}
+
 
 void main_f() {
   // image
   const auto aspect_ratio = 4.0 / 3.0;
   const int image_width = tft.width();  // 320
   const int image_height = tft.height(); // 240
+  const int samples_per_pixel = 20;
+  const int max_depth = 10;
   Serial.println("width height");
   Serial.println(image_width);
   Serial.println(image_height);
 
   // camera
-  auto viewport_height = 2.0;
-  auto viewport_width = aspect_ratio * viewport_height;
-  auto focal_length = 1.0;
-
-  auto origin = point3(0, 0, 0);
-  auto horizontal = vec3(viewport_width, 0, 0);
-  auto vertical = vec3(0, viewport_height, 0);
-  auto lower_left_corner = origin - horizontal / 2 - vertical / 2 - vec3(0, 0, focal_length);
+  camera cam;
 
   // render
   for (int j = image_height - 1; j >= 0; --j) {
     for (int i = 0; i < image_width; ++i) {
+      color pixel_color(0, 0, 0);
+      for(int s=0; s < samples_per_pixel; ++s){
+        auto u = double(i) / (image_width - 1);
+        auto v = double(j) / (image_height - 1);
+        ray r = cam.get_ray(u, v);
+        pixel_color += ray_color(r, max_depth);
+      }
 
-      auto u = double(i) / (image_width - 1);
-      auto v = double(j) / (image_height - 1);
-
-      ray r(origin, lower_left_corner + u * horizontal + v * vertical - origin);
-      unsigned int color = color_to_565(ray_color(r));
-      tft.drawPixel(i, j,  color);
+      write_color(i, j, pixel_color, samples_per_pixel);
     }
   }
 }
