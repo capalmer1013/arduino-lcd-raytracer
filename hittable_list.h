@@ -1,28 +1,31 @@
 #ifndef HITTABLE_LIST_H
 #define HITTABLE_LIST_H
 
-#include "hittable.h"
+#include "sphere.h"
   
-class hittable_list : public hittable  {
+class hittable_list{
     public:
         hittable_list() {}
-        hittable_list(hittable* object) { add(object); }
+        hittable_list(sphere* object) { add(object); }
 
         void clear() {
             index = 0;
           }
-        void add(hittable* object) {
+        void add(sphere *object) {
           objects[index] = object;
           index ++;
           }
+        void add(sphere object){
+          objects[index] = &object;
+          index ++;
+        }
 
-        virtual bool hit(
-            const ray& r, double t_min, double t_max, hit_record& rec) const override;
+        bool hit(const ray& r, double t_min, double t_max, hit_record& rec) const;
 
     public:
         int index = 0;
         int const listSize = 100;
-        hittable *objects[100] = {NULL};
+        sphere *objects[100] = {NULL};
 };
 
 
@@ -32,7 +35,7 @@ bool hittable_list::hit(const ray& r, double t_min, double t_max, hit_record& re
     auto closest_so_far = t_max;
 
     //for (const auto& object : objects) {
-    for(int i=0; i<= index; i++){
+    for(int i=0; i< index; i++){
       const auto& object = objects[i];
         if (object->hit(r, t_min, closest_so_far, temp_rec)) {
             hit_anything = true;
