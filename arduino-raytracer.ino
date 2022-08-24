@@ -52,15 +52,15 @@ color ray_color(const ray& r, hittable_list world, int depth) {
 
 void setup(void) {
   randomSeed(analogRead(5));
-  Serial.begin(9600);
-  Serial.println(F("TFT LCD test"));
+//  Serial.begin(9600);
+//  Serial.println(F("TFT LCD test"));
   tft.reset();
   uint16_t identifier = tft.readID();
   tft.begin(identifier);
   tft.setRotation(1);
-  for(int i=0; i< 10;i++){
-    Serial.println(random_double());
-  }
+//  for(int i=0; i< 10;i++){
+//    Serial.println(random_double());
+//  }
   main_f();
 }
 
@@ -87,15 +87,15 @@ void main_f() {
 //  const int max_depth = 10;
   const int samples_per_pixel = 2;
   const int max_depth = 2;
-  Serial.println("width height");
-  Serial.println(image_width);
-  Serial.println(image_height);
+//  Serial.println("width height");
+//  Serial.println(image_width);
+//  Serial.println(image_height);
 
   // World
   hittable_list world;
   world.add(sphere(point3(0, 0, -1), 0.5));
   //world.add(sphere(point3(0, 1, -1), 0.5));
-  //world.add(sphere(point3(0, -100.5, -1), 100));
+  world.add(sphere(point3(0, -100.5, -1), 100));
   
 
   // camera
@@ -103,6 +103,8 @@ void main_f() {
 
   // render
   for (int j = 0; j < image_height; ++j) {
+    //Serial.print("line number: ");
+    //Serial.println(j);
     for (int i = 0; i < image_width; ++i) {
       color pixel_color(0, 0, 0);
       for(int s=0; s < samples_per_pixel; ++s){
